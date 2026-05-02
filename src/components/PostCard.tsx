@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, FileText, ExternalLink, Play } from "lucide-react";
 import { type Post, formatCount } from "@/data/mockData";
 import TierGate from "@/components/TierGate";
+import { sanitizeUrl } from "@/lib/utils";
 
 interface PostCardProps {
   post: Post;
@@ -105,10 +106,10 @@ export default function PostCard({ post: initial }: PostCardProps) {
       )}
 
       {/* ── URL link preview ──────────────────────────────── */}
-      {post.mediaType === "url" && post.mediaUrl && (
+      {post.mediaType === "url" && post.mediaUrl && sanitizeUrl(post.mediaUrl) && (
         <div className="px-4 pb-3">
           <a
-            href={post.mediaUrl}
+            href={sanitizeUrl(post.mediaUrl)!}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group"

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Image, Video, Link2, Paperclip, Send, X, FileText } from "lucide-react";
 import { feedPosts, currentUser, type Post } from "@/data/mockData";
 import PostCard from "@/components/PostCard";
+import { sanitizeUrl } from "@/lib/utils";
 
 type MediaType = "image" | "video" | "url" | "file" | null;
 type FeedFilter = "All" | "Following" | "Trending" | "NFT";
@@ -88,6 +89,14 @@ export default function Feed() {
 
   function submitPost() {
     if (!draft.trim() && !mediaPreview && !linkUrl) return;
+
+    // Reject non-http(s) URLs before they enter state.
+    const safeLink = mediaType === "url" ? sanitizeUrl(linkUrl) : null;
+    if (mediaType === "url" && !safeLink) {
+      // URL was provided but is unsafe — abort the post.
+      return;
+    }
+
     const tags = [...draft.matchAll(/#(\w+)/g)].map(m => m[1]);
     const newPost: Post = {
       id: Date.now().toString(),
@@ -103,7 +112,7 @@ export default function Feed() {
       tags,
       ...(mediaType === "image" && mediaPreview ? { image: mediaPreview, mediaType: "image", mediaUrl: mediaPreview } : {}),
       ...(mediaType === "video" && mediaPreview ? { mediaType: "video", mediaUrl: mediaPreview } : {}),
-      ...(mediaType === "url"  && linkUrl        ? { mediaType: "url",   mediaUrl: linkUrl } : {}),
+      ...(mediaType === "url"  && safeLink       ? { mediaType: "url",   mediaUrl: safeLink } : {}),
       ...(mediaType === "file" && fileName       ? { mediaType: "file",  fileName } : {}),
     };
     setPosts(prev => [newPost, ...prev]);
