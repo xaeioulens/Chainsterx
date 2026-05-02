@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
 import { Home, User, MessageSquare, Settings, Zap } from "lucide-react";
-import { subscribeWallet, type WalletState } from "@/lib/wallet";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 import { currentUser } from "@/data/mockData";
 import { useUserTier, TIER_COLOR, TIER_LABEL } from "@/context/UserTierContext";
 
@@ -18,12 +18,8 @@ const NAV_ITEMS = [
 ];
 
 export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen }: NavbarProps) {
-  const [wallet, setWallet] = useState<WalletState>({ status: "idle" });
+  const { isConnected } = useAccount();
   const { tier } = useUserTier();
-
-  useEffect(() => subscribeWallet(setWallet), []);
-
-  const isConnected = wallet.status === "connected";
   const tierColor = TIER_COLOR[tier];
 
   return (
@@ -49,11 +45,8 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
             >
               <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
-            <span
-              className="text-xl font-extrabold gradient-text hidden sm:block"
-              style={{ letterSpacing: "-0.03em" }}
-            >
-              Chainster
+            <span className="text-xl font-extrabold gradient-text hidden sm:block" style={{ letterSpacing: "-0.03em" }}>
+              Chainsterx
             </span>
           </button>
 
@@ -64,9 +57,7 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
                 key={id}
                 onClick={() => onTabChange(id)}
                 className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  activeTab === id
-                    ? "text-white"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  activeTab === id ? "text-white" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                 }`}
                 style={activeTab === id ? {
                   background: "linear-gradient(135deg, rgba(59,130,246,.18), rgba(139,92,246,.12))",
@@ -88,8 +79,9 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
             ))}
           </nav>
 
-          {/* Right: tier badge + settings icon + avatar */}
+          {/* Right: tier badge + RainbowKit connect + settings + avatar */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Tier badge */}
             <span
               className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full"
               style={{
@@ -101,6 +93,14 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
               {TIER_LABEL[tier]}
             </span>
 
+            {/* RainbowKit connect button — compact mode */}
+            <ConnectButton
+              accountStatus="avatar"
+              chainStatus="icon"
+              showBalance={false}
+            />
+
+            {/* Settings */}
             <button
               onClick={onMenuOpen}
               className="w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-blue-400 transition-all"
@@ -110,18 +110,15 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
               <Settings className="w-4 h-4" />
             </button>
 
-            <button onClick={onMenuOpen} className="relative group" aria-label="Open menu">
+            {/* Avatar → opens menu */}
+            <button onClick={onMenuOpen} className="relative group hidden sm:block" aria-label="Open menu">
               <img
                 src={currentUser.avatar}
                 alt={currentUser.username}
                 className="w-9 h-9 rounded-full object-cover transition-all group-hover:scale-105"
                 style={{
-                  border: isConnected
-                    ? "2px solid rgba(74,222,128,.5)"
-                    : `2px solid rgba(${tierColor},.4)`,
-                  boxShadow: isConnected
-                    ? "0 0 0 1px rgba(74,222,128,.2), 0 0 10px rgba(74,222,128,.15)"
-                    : `0 0 0 1px rgba(${tierColor},.1)`,
+                  border: isConnected ? "2px solid rgba(74,222,128,.5)" : `2px solid rgba(${tierColor},.4)`,
+                  boxShadow: isConnected ? "0 0 0 1px rgba(74,222,128,.2), 0 0 10px rgba(74,222,128,.15)" : `0 0 0 1px rgba(${tierColor},.1)`,
                 }}
               />
               {isConnected && (
@@ -162,7 +159,6 @@ export default function Navbar({ activeTab, onTabChange, unreadCount, onMenuOpen
               <span className="text-[10px] font-semibold">{label}</span>
             </button>
           ))}
-
           <button
             onClick={onMenuOpen}
             className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-muted-foreground transition-all"

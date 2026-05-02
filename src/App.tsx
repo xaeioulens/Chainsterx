@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import "@rainbow-me/rainbowkit/styles.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserTierProvider } from "@/context/UserTierContext";
+import { wagmiConfig } from "@/lib/wagmiConfig";
 import { conversations as mockConversations, type Conversation } from "@/data/mockData";
 import Navbar from "@/components/Navbar";
 import Feed from "@/components/Feed";
@@ -57,14 +61,26 @@ function AppShell() {
   );
 }
 
+const arcTheme = darkTheme({
+  accentColor:          "#3b82f6",
+  accentColorForeground: "#ffffff",
+  borderRadius:         "large",
+  fontStack:            "system",
+  overlayBlur:          "large",
+});
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <UserTierProvider>
-          <AppShell />
-        </UserTierProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider theme={arcTheme} initialChain={5042002}>
+          <TooltipProvider>
+            <UserTierProvider>
+              <AppShell />
+            </UserTierProvider>
+          </TooltipProvider>
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }

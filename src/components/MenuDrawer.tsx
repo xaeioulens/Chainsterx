@@ -5,10 +5,10 @@ import {
   Check, Zap, Link2, Globe, Lock, Eye, EyeOff, Smartphone, Info,
   HelpCircle, FileText, Star, MessageSquare, SlidersHorizontal,
 } from "lucide-react";
-import {
-  connectWallet, disconnectWallet, subscribeWallet,
-  shortenAddress, type WalletState,
-} from "@/lib/wallet";
+import { useAccount, useBalance, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { shortenAddress } from "@/lib/wallet";
+import { arcTestnet } from "@/lib/arcChain";
 import { useUserTier, TIER_LABEL, TIER_COLOR, type Tier } from "@/context/UserTierContext";
 import { currentUser } from "@/data/mockData";
 
@@ -43,10 +43,15 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProps) {
   const [panel, setPanel] = useState<Panel>("main");
-  const [wallet, setWallet] = useState<WalletState>({ status: "idle" });
   const [copied, setCopied] = useState(false);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const { tier: activeTier, setTier } = useUserTier();
+
+  // wagmi / RainbowKit
+  const { address, isConnected, isConnecting } = useAccount();
+  const { data: balance } = useBalance({ address, chainId: arcTestnet.id });
+  const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
 
   // settings state
   const [notifOn, setNotifOn] = useState(true);
@@ -57,22 +62,22 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
   const [neonOn, setNeonOn] = useState(true);
   const [compactOn, setCompactOn] = useState(false);
 
-  useEffect(() => subscribeWallet(setWallet), []);
   useEffect(() => { if (!open) setTimeout(() => setPanel("main"), 300); }, [open]);
 
-  const isConnected  = wallet.status === "connected";
-  const isConnecting = wallet.status === "connecting";
+  const balanceDisplay = balance
+    ? `${parseFloat(balance.formatted).toFixed(4)} ${balance.symbol}`
+    : "—";
 
   function copyAddr() {
-    if (wallet.status !== "connected") return;
-    navigator.clipboard.writeText(wallet.address).catch(() => {});
+    if (!address) return;
+    navigator.clipboard.writeText(address).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   function openExplorer() {
-    if (wallet.status !== "connected") return;
-    window.open(`https://etherscan.io/address/${wallet.address}`, "_blank", "noopener,noreferrer");
+    if (!address) return;
+    window.open(`${arcTestnet.blockExplorers.default.url}/address/${address}`, "_blank", "noopener,noreferrer");
   }
 
   function nav(tab: string) { onNavigate(tab); onClose(); }
@@ -112,25 +117,25 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
               </span>
             </div>
             <p className="text-xs text-muted-foreground">{currentUser.handle}</p>
-            {isConnected && wallet.status === "connected" && (
-              <p className="text-[11px] text-blue-400 font-mono mt-0.5">{shortenAddress(wallet.address)}</p>
+            {isConnected && address && (
+              <p className="text-[11px] text-blue-400 font-mono mt-0.5">{shortenAddress(address)}</p>
             )}
           </div>
         </div>
 
         {/* Wallet status */}
-        {isConnected && wallet.status === "connected" ? (
+        {isConnected && address ? (
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-xl"
             style={{ background: "rgba(74,222,128,.07)", border: "1px solid rgba(74,222,128,.18)" }}
           >
             <span className="w-1.5 h-1.5 bg-green-400 rounded-full" style={{ boxShadow: "0 0 5px #4ade80" }} />
-            <span className="text-xs font-medium text-green-400">Wallet Connected</span>
-            <span className="ml-auto text-xs text-green-400/70 font-semibold">{wallet.balance}</span>
+            <span className="text-xs font-medium text-green-400">Arc Testnet</span>
+            <span className="ml-auto text-xs font-mono text-green-400/80">{shortenAddress(address)}</span>
           </div>
         ) : (
           <button
-            onClick={async () => { try { await connectWallet(); } catch {} }}
+            onClick={openConnectModal}
             disabled={isConnecting}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
             style={{ background: "linear-gradient(135deg, var(--neon-blue), var(--neon-purple))", boxShadow: "0 0 12px rgba(59,130,246,.35)" }}
@@ -182,7 +187,7 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
       {/* Logout */}
       <div className="px-3 pb-6 pt-2" style={{ borderTop: "1px solid rgba(59,130,246,.08)" }}>
         <button
-          onClick={() => { if (isConnected) disconnectWallet(); onClose(); }}
+          onClick={() => { if (isConnected) disconnect(); onClose(); }}
           className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-sm font-medium text-red-400 hover:text-red-300 transition-all"
           style={{ background: "rgba(239,68,68,.05)", border: "1px solid rgba(239,68,68,.12)" }}
         >
@@ -206,24 +211,29 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
         </button>
         <Wallet className="w-4 h-4 text-blue-400" />
         <h3 className="text-base font-bold gradient-text">Wallet</h3>
+        {/* ARC Testnet badge */}
+        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.25)", color: "rgb(96,165,250)" }}>
+          Arc Testnet
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {isConnected && wallet.status === "connected" ? (
+        {isConnected && address ? (
           <>
+            {/* Address card */}
             <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(59,130,246,.2)" }}>
               <div className="px-4 py-3" style={{ background: "rgba(59,130,246,.06)", borderBottom: "1px solid rgba(59,130,246,.12)" }}>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-2">
                   <span className="w-2 h-2 bg-green-400 rounded-full" style={{ boxShadow: "0 0 5px #4ade80" }} />
-                  <span className="text-xs font-semibold text-green-400">Connected</span>
+                  <span className="text-xs font-semibold text-green-400">Connected · Arc Testnet</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-mono text-xs text-foreground break-all leading-relaxed">{wallet.address}</p>
+                  <p className="font-mono text-xs text-foreground break-all leading-relaxed">{address}</p>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={copyAddr} className="p-1.5 rounded-lg text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-all">
+                    <button onClick={copyAddr} className="p-1.5 rounded-lg text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-all" title="Copy address">
                       <Copy className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={openExplorer} className="p-1.5 rounded-lg text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-all">
+                    <button onClick={openExplorer} className="p-1.5 rounded-lg text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 transition-all" title="View on ArcScan">
                       <ExternalLink className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -233,15 +243,34 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
               <div className="px-4 py-3 grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Balance</p>
-                  <p className="text-base font-bold gradient-text">{wallet.balance}</p>
+                  <p className="text-base font-bold gradient-text">{balanceDisplay}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Network</p>
-                  <p className="text-sm font-semibold text-blue-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" />Ethereum</p>
+                  <p className="text-sm font-semibold text-blue-400 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5" />Arc Testnet
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Chain info */}
+            <div className="rounded-2xl px-4 py-3 space-y-2" style={{ background: "rgba(59,130,246,.04)", border: "1px solid rgba(59,130,246,.12)" }}>
+              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Network Details</p>
+              {[
+                { label: "Chain ID",   value: String(arcTestnet.id) },
+                { label: "Gas Token",  value: "USDC (18 dec)" },
+                { label: "RPC",        value: "rpc.testnet.arc.network" },
+                { label: "Explorer",   value: "testnet.arcscan.app" },
+              ].map(r => (
+                <div key={r.label} className="flex items-center justify-between py-0.5">
+                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                  <span className="text-xs font-mono text-foreground">{r.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* NFTs */}
             <div className="rounded-2xl px-4 py-3.5 flex items-center justify-between" style={{ background: "rgba(139,92,246,.05)", border: "1px solid rgba(139,92,246,.15)" }}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "rgba(139,92,246,.15)" }}>
@@ -249,14 +278,26 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">NFTs Owned</p>
-                  <p className="text-xs text-muted-foreground">Across all chains</p>
+                  <p className="text-xs text-muted-foreground">On Arc Testnet</p>
                 </div>
               </div>
               <span className="text-lg font-bold gradient-text">14</span>
             </div>
 
+            {/* Faucet link */}
+            <a
+              href="https://faucet.circle.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold transition-all"
+              style={{ background: "rgba(59,130,246,.06)", border: "1px solid rgba(59,130,246,.18)", color: "rgb(96,165,250)" }}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Get Testnet USDC (Faucet)
+            </a>
+
             <button
-              onClick={async () => { await disconnectWallet(); }}
+              onClick={() => disconnect()}
               className="w-full py-3 rounded-2xl text-sm font-semibold text-red-400 hover:text-red-300 transition-all"
               style={{ background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.15)" }}
             >
@@ -271,12 +312,13 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
             >
               <Wallet className="w-9 h-9 text-blue-400" />
             </div>
-            <div className="text-center">
-              <p className="text-base font-bold gradient-text mb-1">No Wallet Connected</p>
-              <p className="text-sm text-muted-foreground max-w-xs">Connect your wallet to access assets, NFTs, and DeFi features.</p>
+            <div className="text-center space-y-1">
+              <p className="text-base font-bold gradient-text">Connect to Arc Testnet</p>
+              <p className="text-sm text-muted-foreground">Supports MetaMask, Rainbow, Rabby, and Coinbase Wallet.</p>
+              <p className="text-xs text-muted-foreground/60">Chain ID 5042002 · Gas token: USDC</p>
             </div>
             <button
-              onClick={async () => { try { await connectWallet(); } catch {} }}
+              onClick={openConnectModal}
               disabled={isConnecting}
               className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-semibold text-white transition-all disabled:opacity-60"
               style={{ background: "linear-gradient(135deg, var(--neon-blue), var(--neon-purple))", boxShadow: "0 0 16px rgba(59,130,246,.4)" }}
@@ -285,6 +327,10 @@ export default function MenuDrawer({ open, onClose, onNavigate }: MenuDrawerProp
                 ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Connecting…</>
                 : <><Wallet className="w-4 h-4" />Connect Wallet</>}
             </button>
+            {/* Manual setup hint */}
+            <p className="text-[11px] text-muted-foreground/50 text-center px-4">
+              The wallet will automatically prompt you to add Arc Testnet.
+            </p>
           </div>
         )}
       </div>

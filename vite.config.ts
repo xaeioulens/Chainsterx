@@ -18,6 +18,17 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react":    ["react", "react-dom"],
+          "vendor-wagmi":    ["wagmi", "viem", "@wagmi/core"],
+          "vendor-rainbow":  ["@rainbow-me/rainbowkit"],
+          "vendor-wallets":  ["@metamask/sdk"],
+        },
+      },
+    },
   },
   server: {
     port: 5173,
